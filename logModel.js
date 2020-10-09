@@ -3,10 +3,9 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const logSchema = new Schema({
-  _id:String,
-  id: String,
+ 
   active : Boolean,
-  hesapAdi:String,
+  _id:String,
   time : Date
 });
 

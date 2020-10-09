@@ -5,11 +5,10 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const User = require("./userModel");
 const Log = require("./logModel");
-
 const port = process.env.PORT || 4000;
-
+let ok=0
 const Arrayid = [];
-
+let All=[]
 app.use(cors());
 app.use(express.json());
 
@@ -30,81 +29,115 @@ connection.once("open", () => {
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-/* function dbAtma(item) {
-  let user = {};
-  item.map(
-    (i) =>
-      (user = {
-        id: i.node.id,
+
+
+
+
+async function dbAtma(item) {
+   let userObj=[]
+  
+  const promises = item.map(
+    async (i) =>{
+    
+let user = {
+       
+        _id: i.node.id,
+        id:  i.node.id,
         followed: false,
-      })
+      }
+console.log(user)
+  
+All.push(user)
+
+// wait until all promises are resolved
+
+   
+    }
   );
 
-  User.create(user, (err, data) => {
+  console.log("All",All)
+    
+    
+    await  User.insertMany(All, { ordered: false }, (err, data) => {
+      if (err) {
+        console.log(err);
+      } else {
+        console.log("65",data);
+        All=[]
+      }
+    })
+    
+
+  
+ 
+ 
+} 
+
+const getUsers=async ()=>{
+
+return await User.find({}, async (err, data) => {
     if (err) {
       console.log(err);
     } else {
-      console.log(data);
+      
+     
     }
   });
-} */
-
-const getUsers = async () => {
-  return await User.find({}, async (err, data) => {
-    if (err) {
-      console.log(err);
-    } else {
-    }
-  });
-};
-const getOneUser = async () => {
-  return await User.findOne({ followed: false }, function (err, adventure) {});
-};
-
-function start(cookie, body) {
-  follow(cookie, body);
 }
-async function follow(headers, body) {
+const getOneUser=async ()=>{
+
+  return await User.findOne({ followed: false }, function (err, adventure) {
+
+
+  });
+    
+  }
+  
+
+
+
+function start(cookie,body,res) {
+  
+  follow(cookie,body,res);
+  
+}
+async function follow(headers,body) {
   console.log("Başladı");
   await sleep(2000);
   console.log("Two seconds later, showing sleep in a loop...");
 
   // Sleep in loop
-  const interval = setInterval(async () => {
-    const user = await getOneUser();
-    console.log(user);
-
+ const interval=setInterval(async () => {
+  
+    const user= await getOneUser()
+    console.log(user)
+  
     axios({
       method: "post", //you can set what request you want to be
       url: `https://www.instagram.com/web/friendships/${user.id}/follow/`,
 
-      headers: headers,
+      headers: headers
     })
       .then((response) => {
-        if (
-          response.data.result === "following" ||
-          response.data.result === "requested"
-        ) {
-          User.updateOne(
-            { _id: user._id }, // Filter
-            {
-              $set: {
-               
-                followed: true,
-                log: response.data.result,
-                time: new Date(),
-                account: body.query.account,
-              },
-            } // Update
-          )
-            .then((obj) => console.log("updated"))
-            .catch((err) => console.log(err));
+      
+       console.log(response.data)
+     console.log(body.query.account)
+
+     if(response.data.result==="following"||response.data.result==="requested"){
+      User.updateOne(
+        { _id: user._id }, // Filter
+        { $set: { followed: true,log:response.data.result,time: new Date(),account:body.query.account } } // Update
+      )
+        .then((obj) =>    console.log("updated"))
+        .catch((err) => console.log(err));
+        Log.findOne({_id:body.query.account},(err,res)=> {
+          if(err){
             Log.create({
-              id: user._id,
-              _id: user._id,
+         
+              _id: body.query.account,
               active: true,
               time: new Date(),
-              hesapAdi: body.query.account,
+             
             },(err, data) => {
               if (err) {
                 console.log(err);
@@ -112,27 +145,62 @@ async function follow(headers, body) {
                 console.log(data);
               }
             })
-            
-          
-        }else{
-          Log.create({
-            id: user._id,
-            _id: user._id,
-            active: false,
-            time: new Date(),
-            hesapAdi: body.query.account,
-          },(err, data) => {
-            if (err) {
-              console.log(err);
-            } else {
-              console.log(data);
-            }
-          })
-          clearInterval(interval)
-        }
+          }else{
+            Log.updateOne(
+              { _id: body.query.account }, // Filter
+              { $set: {active:true,time: new Date()} } // Update
+            )
+              .then((obj) =>    console.log("updated"))
+              .catch((err) => console.log(err));
+          }
+        })
+       
+
+     }else{
+
+      Log.findOne({_id:body.query.account},(err,res)=> {
+          if(err){
+            Log.create({
+              _id: body.query.account,
+              active: false,
+              time: new Date(),
+             
+            },(err, data) => {
+              if (err) {
+                console.log(err);
+              } else {
+                console.log(data);
+              }
+            })
+          }else{
+            Log.updateOne(
+              { _id: body.query.account }, // Filter
+              { $set: {active:false,time: new Date()} } // Update
+            )
+              .then((obj) =>    console.log("updated"))
+              .catch((err) => console.log(err));
+          }
+        })
+      clearInterval(interval)
+     }
+
+      
+  
+
+
       })
       .catch((e) => console.log(e));
-  }, 300000);
+      
+
+
+
+
+
+
+ }, 500000);
+      
+     
+ 
 }
 
 function showid(array, cookie) {
@@ -144,8 +212,8 @@ function showid(array, cookie) {
   }, 3000);
 }
 
-/* async function start(name, cookie) {
-  //console.log(name);
+ async function pullUsers(name, cookie) {
+  console.log("cookie",cookie);
   //console.log(`https://www.instagram.com/${name}/?__a=1`);
   //"etsy" yazarak etsynin idsini alıyoruz aslında direk idsini bulabilirz ama sonradan bugra yazdıgımızda otomatik onun kullanıclarını almıs olcaz daha rahat
   axios({
@@ -166,10 +234,10 @@ function showid(array, cookie) {
   }).then((n) => {
     //kullanıcı id sini aldık
     let userid = n.data.logging_page_id.split("_")[1];
-    //console.log(userid);
+ 
     //alttaki url followersları alma urlsi ama ilk follower çekişle sonrakiler farklı
-    let url = `https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A24%7D`;
-    //console.log(url);
+    let url = `https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A24%7D`;
+
     axios({
       method: "get", //you can set what request you want to be
       url: url,
@@ -177,10 +245,10 @@ function showid(array, cookie) {
       headers: {
         cookie: cookie,
         "sec-fetch-dest": "empty",
-
+"x-csrftoken":"Cf4JWvECIhzt77OrBomorhnVB3PaNFmZ",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        referer: "https://www.instagram.com/tomascorekulan/following/",
+        referer: "https://www.instagram.com/necklacesofficial/followers/",
         "x-ig-app-id": 936619743392459,
         "x-ig-www-claim":
           "hmac.AR3EgGFPrRp7lMoflSHG-AggQXPR8gqcknUibswg0xaolnOy",
@@ -188,13 +256,15 @@ function showid(array, cookie) {
       },
     }).then((response) => {
       //followersları çektik yanında kullancılar ve after geldi sonra bunu loopa alıcaz aşagıda
-      let obj = response.data.data.user.edge_follow;
+     
+    
+      let obj = response.data.data.user.edge_followed_by;
 
       let after = obj.page_info.end_cursor;
-      //console.log(obj);
+      
       let Array = [];
       //Array.push(obj.edges)
-
+console.log("ilki tamam",obj)
       let newurl = `https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A200%2C%22after%22%3A%22${
         after.split("==")[0]
       }%3D%3D%22%7D`;
@@ -217,39 +287,55 @@ function showid(array, cookie) {
             "x-requested-with": "XMLHttpRequest",
           },
         })
-          .then((response) => {
+          .then(async (response) => {
             newurl = `https://www.instagram.com/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables=%7B%22id%22%3A%22${userid}%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Atrue%2C%22first%22%3A100%2C%22after%22%3A%22${
               response.data.data.user.edge_followed_by.page_info.end_cursor.split(
                 "=="
               )[0]
             }%3D%3D%22%7D`;
-            dbAtma(response.data.data.user.edge_followed_by.edges);
+        
+          await dbAtma(response.data.data.user.edge_followed_by.edges);
+        
+         
             //yukarıdaki direk id si her request sonrası new url üretiyoruz çünkü after şeyleri farklı hepsinin
-            if (Array.length > 50) {
+        
               //50 ye ulaştıgında durdur
-              clearInterval(inter);
-            }
+             
+            
           })
           .catch();
-      }, 3000);
+      }, 12000);
     });
   });
 }
- */
-app.get("/info", async (req, res) => {
-  const users = await getUsers();
-  console.log(users);
-  res.status(200).send({ users: users });
-});
+ 
+app.get('/info',async (req, res) =>{
+
+const users= await getUsers()
+console.log(users)
+res.status(200).send({users:users})
+
+})
 app.post("/follow", async (req, res) => {
 
 
-  let obj=req.headers
-  delete obj["host"]
-  res.send(obj)
-  start(obj,req);
+
+
+
+
+ let obj= req.headers
+ delete obj["host"];
+res.send(obj)
+  start(obj,req,res)
 });
 
-app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
-});
+app.listen(port, () =>
+{
+setTimeout(() => {
+//User.deleteMany().then(e=>console.log(e))
+ //pullUsers("necklacesofficial",' ig_did=1B6DD261-B5CD-4B9C-BD54-F92D2F1A381E; mid=Xy1jHAALAAFGGg1b9oim18euAcN6; fbm_124024574287414=base_domain=.instagram.com; datr=7CxEXygCWAWwj8_G6630yIUB; rur=RVA; ig_gdpr_signup=%7B%22count%22%3A2%2C%22timestamp%22%3A1601977913136%7D; ig_nrcb=1; fbsr_124024574287414=7IdbY9o0sgYpCl-DfM7ks2DfpHxY7RohWZ0kKPl4geM.eyJ1c2VyX2lkIjoiMTI1NzY2NzQwMCIsImNvZGUiOiJBUUIyTnFpTG9kcGVhQnJwVVBOVE5mNldSOWVTNWc2V2FjRFF4VWFKYmR6TWw0ZGJDWTM5S2NGQ2RGeFNYeEVzdDhmcmtJV0taM3hDdXo3eE9MSDBRMFFXbnFxMm1reGlyVkZQbFhvYlUwa1RVZjdaWEFKNElrdWZsSVdjNmFCM19jRVBiQkloVUotdGQ5eUJiZ2hiY2Y1WnJhbEpRdEhWcmQ3SFZBZEJEWXBXbXFyaHdMX3AzTkU2Y0JmSGhHRkRJZHdIeVVsVHpFNzBQOXE0M2dlY3A0Vmh1ZHNMdXN0QmNfYkFSUDBQQzBZTzI4YThQbmNINEhfMXo5eVlQOS1zNXhvSmJkUE9CZ0NKZzZNRklzMkV6NGNaTTFTbHVMSU5BWVBiMG5ZcDFidmgxSHFtYWVfbk1kM2MwZE5XOEFIVEJWSSIsIm9hdXRoX3Rva2VuIjoiRUFBQnd6TGl4bmpZQkFKNG4xV0JaQVR0SjZBa1RaQmhkdmtKUUFuNjF1STJFelRZRlRsYkYwNjZYQmg3d1BGak91ZHZDZUhHZUJaQURJVHRqa1pBUTBNb2FjS1Q0Q2R4RHdMcTdUZ3JrQXdoVE5YTjVYSWlIZ0xuTUVJSDlIMDVlMnNYbVE2MnRlY2tYZzBQY2xMU1Byek9kRXJiclRaQ0dNR3NRU3BBaVFWZ1pEWkQiLCJhbGdvcml0aG0iOiJITUFDLVNIQTI1NiIsImlzc3VlZF9hdCI6MTYwMjA3NTM0NH0; csrftoken=Cf4JWvECIhzt77OrBomorhnVB3PaNFmZ; ds_user_id=43227602058; sessionid=43227602058%3A3lVzpvs27FhC3f%3A2; shbid=6407; shbts=1602083711.6219184; urlgen="{\"78.190.56.63\": 47331\054 \"46.155.41.28\": 15897}:1kQXpC:w3XnmEgyr9JHQ1SBNA7GlclWx2M"')
+  
+}, 10000);
+  console.log(`Example app listening at http://localhost:${port}`)
+}
+);
