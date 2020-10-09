@@ -89,8 +89,7 @@ async function follow(headers, body) {
             { _id: user._id }, // Filter
             {
               $set: {
-                _id:user._id,
-                id:user.id,
+               
                 followed: true,
                 log: response.data.result,
                 time: new Date(),
